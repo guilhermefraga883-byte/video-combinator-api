@@ -45,25 +45,30 @@ def combine():
             f.write(f"file '{content_path}'\n")
             f.write(f"file '{cta_path}'\n")
 
-        # Try fast copy first (same codec)
         result = subprocess.run([
-            'ffmpeg', '-y',
-            '-f', 'concat', '-safe', '0', '-i', list_path,
-            '-c', 'copy',
-            '-movflags', '+faststart',
-            out_path
-        ], capture_output=True, text=True)
-
-        # If copy failed, re-encode (handles different codecs/resolutions)
-        if result.returncode != 0:
-            result = subprocess.run([
-                'ffmpeg', '-y',
-                '-f', 'concat', '-safe', '0', '-i', list_path,
-                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-                '-c:a', 'aac', '-b:a', '128k',
-                '-movflags', '+faststart',
-                out_path
-            ], capture_output=True, text=True)
+    'ffmpeg', '-y',
+    '-i', hook_path,
+    '-i', content_path,
+    '-i', cta_path,
+    '-filter_complex',
+    '[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[v0];'
+    '[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[v1];'
+    '[2:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[v2];'
+    '[0:a]aresample=44100[a0];'
+    '[1:a]aresample=44100[a1];'
+    '[2:a]aresample=44100[a2];'
+    '[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[outv][outa]',
+    '-map', '[outv]',
+    '-map', '[outa]',
+    '-c:v', 'libx264',
+    '-preset', 'fast',
+    '-crf', '23',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-movflags', '+faststart',
+    out_path
+], capture_output=True, text=True)
 
         if result.returncode != 0:
             return jsonify({'error': 'FFmpeg failed', 'details': result.stderr}), 500
