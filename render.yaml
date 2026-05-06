@@ -5,7 +5,7 @@ services:
     buildCommand: |
       apt-get update && apt-get install -y ffmpeg
       pip install -r requirements.txt
-    startCommand: gunicorn app:app --timeout 1200 --workers 1
+    startCommand: gunicorn app:app --timeout 3600 --workers 2 --keep-alive 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
